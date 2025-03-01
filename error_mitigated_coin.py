@@ -18,21 +18,24 @@ from quantum_visualizer import QuantumVisualizer
 def create_noise_model(error_rate=0.05):
     """
     Create a simple noise model to simulate quantum hardware noise
-    
-    Args:
-        error_rate: Probability of bit-flip errors
-        
-    Returns:
-        NoiseModel: A Qiskit noise model
     """
-    # Create an empty noise model
-    noise_model = NoiseModel()
+    from qiskit.quantum_info import Kraus
+    from qiskit_aer.noise import NoiseModel, QuantumError
     
-    # Add bit-flip error to the noise model
-    # This simulates errors that would occur on real quantum hardware
-    noise_model.add_all_qubit_quantum_error(
-        error_rate, "measure"
-    )
+    # Create bit flip error
+    # For a bit flip with probability p, we have these Kraus operators:
+    # K0 = sqrt(1-p) * identity, K1 = sqrt(p) * X gate
+    p = error_rate
+    k0 = [[1-p, 0], [0, 1-p]]
+    k1 = [[0, p], [p, 0]]
+    
+    # Create the quantum error
+    kraus_ops = [k0, k1]
+    error = QuantumError(Kraus(kraus_ops))
+    
+    # Create a noise model using this error
+    noise_model = NoiseModel()
+    noise_model.add_all_qubit_quantum_error(error, ["measure"])
     
     return noise_model
 
@@ -79,25 +82,11 @@ def single_coin_toss(backend, with_mitigation=False):
 def run_experiment(num_tosses=100, use_hardware=False, error_rate=0.05, 
                   visualize=True, delay=0.1):
     """
-    Run a complete experiment with two visualizers for comparison
-    
-    Args:
-        num_tosses: Number of coin tosses to perform
-        use_hardware: Whether to use hardware acceleration
-        error_rate: Error rate for the noise model
-        visualize: Whether to show real-time visualization
-        delay: Delay between tosses (seconds)
+    Run a complete experiment with simulated noise
     """
     # Initialize backend
-    if use_hardware:
-        backend = initialize_quantum_backend()
-        # Add noise to simulate real quantum hardware
-        noise_model = create_noise_model(error_rate)
-        backend.set_options(noise_model=noise_model)
-        print(f"Using hardware acceleration (simulated with {error_rate:.1%} error rate)")
-    else:
-        backend = AerSimulator()
-        print("Using software simulation")
+    backend = initialize_quantum_backend() if use_hardware else AerSimulator()
+    print(f"Using {'hardware (simulated)' if use_hardware else 'software'} simulation")
     
     # Initialize visualizers if requested
     raw_visualizer = None
@@ -105,17 +94,13 @@ def run_experiment(num_tosses=100, use_hardware=False, error_rate=0.05,
     
     if visualize:
         raw_visualizer = QuantumVisualizer()
-        raw_title = "Raw Quantum Coin Tosses" + (" (with noise)" if use_hardware else "")
+        raw_title = "Raw Quantum Coin Tosses"
         
         mitigated_visualizer = QuantumVisualizer()
         mitigated_title = "Error-Mitigated Quantum Coin Tosses"
         
-        # Start visualizers in separate threads to allow them to run concurrently
-        threading.Thread(target=raw_visualizer.start_visualization, 
-                         args=(raw_title,)).start()
-        time.sleep(1)  # Small delay to space out the windows
-        threading.Thread(target=mitigated_visualizer.start_visualization, 
-                         args=(mitigated_title,)).start()
+        raw_visualizer.start_visualization(raw_title)
+        mitigated_visualizer.start_visualization(mitigated_title)
         time.sleep(1)  # Give windows time to initialize
     
     # Storage for results
@@ -124,19 +109,52 @@ def run_experiment(num_tosses=100, use_hardware=False, error_rate=0.05,
     
     try:
         print(f"\nPerforming {num_tosses} quantum coin tosses with and without error mitigation...")
+        print(f"Simulating {error_rate:.1%} error rate for hardware noise")
         
         for i in range(num_tosses):
-            # Perform raw toss
-            raw_outcome = single_coin_toss(backend, with_mitigation=False)
-            raw_results.append(raw_outcome)
-            if raw_visualizer:
-                raw_visualizer.add_result(raw_outcome)
+            # 1. Create standard quantum circuit for ideal measurement
+            qc = QuantumCircuit(1, 1)
+            qc.h(0)  # Apply Hadamard gate
+            qc.measure(0, 0)  # Measure
             
-            # Perform mitigated toss
-            mitigated_outcome = single_coin_toss(backend, with_mitigation=True)
-            mitigated_results.append(mitigated_outcome)
+            # Run for ideal result
+            job = backend.run(qc, shots=1)
+            result = job.result()
+            counts = result.get_counts()
+            ideal_outcome = list(counts.keys())[0]
+            ideal_bit = int(ideal_outcome)
+            
+            # 2. For raw result - add noise manually if hardware mode
+            raw_bit = ideal_bit
+            if use_hardware and np.random.random() < error_rate:
+                # Manually flip the bit with probability error_rate
+                raw_bit = 1 - raw_bit
+            
+            # 3. For mitigated result - use repeated measurements
+            # Run 5 times and take majority vote
+            if use_hardware:
+                votes = []
+                for _ in range(5):
+                    # Get ideal outcome but manually add noise
+                    vote = ideal_bit
+                    if np.random.random() < error_rate:
+                        vote = 1 - vote
+                    votes.append(vote)
+                
+                # Take the majority vote
+                mitigated_bit = 1 if votes.count(1) > votes.count(0) else 0
+            else:
+                # Without hardware noise, mitigated = ideal
+                mitigated_bit = ideal_bit
+            
+            # Store results
+            raw_results.append(raw_bit)
+            if raw_visualizer:
+                raw_visualizer.add_result(raw_bit)
+                
+            mitigated_results.append(mitigated_bit)
             if mitigated_visualizer:
-                mitigated_visualizer.add_result(mitigated_outcome)
+                mitigated_visualizer.add_result(mitigated_bit)
             
             # Progress update
             if (i+1) % 10 == 0:
@@ -162,10 +180,6 @@ def run_experiment(num_tosses=100, use_hardware=False, error_rate=0.05,
                 mitigated_visualizer.save_visualization("mitigated_quantum_toss.png")
             
             print("Visualizations saved. Close the windows to continue...")
-            time.sleep(1)  # Give time for saves to complete
-            
-            # We don't explicitly stop visualizers to allow user to continue viewing
-            # They will close when the user closes the windows
 
 def analyze_results(raw_results, mitigated_results):
     """

@@ -53,6 +53,80 @@ pip install qiskit qiskit-aer matplotlib numpy pandas seaborn
 
 ## Usage
 
+    ## Quick Start
+
+        1. **Setup environment:**
+        ```bash
+        python -m venv .venv
+        source .venv/bin/activate
+        ```
+
+        2. **Install dependencies:**
+        ```bash
+        pip install qiskit qiskit-aer matplotlib numpy pandas seaborn
+        ```
+
+        3. **Run basic coin toss:**
+        ```bash
+        python quantum_rings_toss.py --tosses 50 --no-viz
+        ```
+
+        ## Core Components
+
+        - **quantum_rings_toss.py**: Basic quantum coin toss using Hadamard gates
+        - **error_mitigated_coin.py**: Implementation with error mitigation techniques
+        - **advanced_qutrit_generator.py**: Three-level quantum system simulation
+        - **quantum_visualizer.py**: Real-time visualization engine (note: visualization may have issues on macOS)
+
+        ## Command Options
+
+        Each component accepts these command-line arguments:
+
+        **Basic Coin Toss:**
+        ```bash
+        python quantum_rings_toss.py [--tosses N] [--hardware] [--no-viz] [--delay X]
+        ```
+
+        **Error Mitigation:**
+        ```bash
+        python error_mitigated_coin.py [--tosses N] [--hardware] [--error X] [--no-viz] [--delay X]
+        ```
+
+        **Qutrit Generator:**
+        ```bash
+        python advanced_qutrit_generator.py [--samples N] [--hardware] [--no-viz] [--delay X]
+        ```
+
+        Where:
+        - `--tosses`/`--samples`: Number of measurements (default: 100)
+        - `--hardware`: Use simulated hardware mode
+        - `--error`: Set error rate for mitigation (default: 0.05)
+        - `--no-viz`: Run without visualization 
+        - `--delay`: Set time between measurements (default: 0.1s)
+
+        ## Troubleshooting
+
+        - **Visualization errors on macOS**: Use `--no-viz` flag to run without visualization
+        - **Missing modules**: Ensure all dependencies are installed
+        - **Import errors**: Check file names match the imports
+
+        ## Examples
+
+        Generate statistics for 100 coin tosses:
+        ```bash
+        python quantum_rings_toss.py --tosses 100 --no-viz
+        ```
+
+        Compare error mitigation with 10% error rate:
+        ```bash
+        python error_mitigated_coin.py --tosses 50 --hardware --error 0.1 --no-viz
+        ```
+
+        Generate qutrit random values:
+        ```bash
+        python advanced_qutrit_generator.py --samples 50 --no-viz
+        ```
+
 ### Basic Quantum Coin Toss
 
 ```python
