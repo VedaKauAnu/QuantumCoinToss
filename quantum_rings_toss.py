@@ -7,6 +7,7 @@ from qiskit_aer import AerSimulator
 import numpy as np
 import time
 import argparse
+import matplotlib.pyplot as plt
 
 # Import our provider initialization and visualizer
 from quantum_rings_provider import initialize_quantum_backend
@@ -54,6 +55,7 @@ def quantum_coin_toss(use_hardware=False, visualizer=None):
     # Update visualizer if provided
     if visualizer:
         visualizer.add_result(result)
+        plt.pause(0.05)  # Force immediate update
     
     return result
 
@@ -130,6 +132,9 @@ def run_experiment(num_tosses=100, use_hardware=False, visualize=True, delay=0.1
         if visualize and visualizer:
             filename = f"quantum_toss_{hardware_label}.png"
             visualizer.save_visualization(filename)
+            plt.pause(0.5)
+            print("\nVisualization complete. Press Enter to close...")
+            input()
             time.sleep(1)  # Give time for save to complete
             visualizer.stop_visualization()
 
@@ -150,3 +155,6 @@ if __name__ == "__main__":
         visualize=not args.no_viz,
         delay=args.delay
     )
+
+    if not args.no_viz:
+        input("Press Enter to close the visualization...")

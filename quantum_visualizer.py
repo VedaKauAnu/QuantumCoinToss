@@ -106,10 +106,12 @@ class QuantumVisualizer:
             interval=self.update_interval,
             blit=False
         )
-        
+    
         plt.tight_layout()
         plt.subplots_adjust(top=0.9)
-        plt.show(block=False)
+        plt.ion()  # Turn on interactive mode
+        plt.draw()
+        plt.pause(0.5)  # Force initial render
     
     def _update_plots(self, frame):
         """Update function for the animation"""

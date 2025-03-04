@@ -1,10 +1,3 @@
-"""
-Advanced Quantum Coin Toss Experiments
---------------------------------------
-This script demonstrates more sophisticated quantum coin toss applications
-including multi-qubit implementations, entanglement-based protocols,
-and practical applications like quantum random number generators.
-"""
 
 from qiskit import QuantumCircuit, transpile
 from qiskit_aer import AerSimulator
