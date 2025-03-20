@@ -1,6 +1,6 @@
 """
 Quantum Coin Toss Implementation with Real-time Visualization
-This version adds a real-time visualization of the quantum coin tosses
+Optimized version with batched coin tosses for better efficiency
 """
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
@@ -13,61 +13,58 @@ import matplotlib.pyplot as plt
 from quantum_rings_provider import initialize_quantum_backend
 from quantum_visualizer import QuantumVisualizer
 
-def quantum_coin_toss(use_hardware=False, visualizer=None):
+def batched_quantum_coin_toss(batch_size, use_hardware=False):
     """
-    Perform a single quantum coin toss
+    Perform multiple quantum coin tosses using a single circuit
     
     Args:
+        batch_size: Number of coin tosses to perform in this batch
         use_hardware: Whether to use the hardware accelerator backend
-        visualizer: Optional visualizer to update with results
         
     Returns:
-        int: 0 or 1 representing the coin toss outcome
+        list: List of 0s and 1s representing coin toss outcomes
     """
     # Initialize the backend
-    if use_hardware:
-        # Get the "hardware" backend (simulated in this implementation)
-        backend = initialize_quantum_backend()
-    else:
-        # Use regular Qiskit simulator
-        backend = AerSimulator()
+    backend = initialize_quantum_backend() if use_hardware else AerSimulator()
     
-    # Create a quantum circuit for a single coin toss
-    qc = QuantumCircuit(1, 1)
+    # Create a quantum circuit with 1 qubit and batch_size classical bits
+    qc = QuantumCircuit(1, batch_size)
     
-    # Apply Hadamard gate to create superposition
-    qc.h(0)
-    
-    # Measure the qubit
-    qc.measure(0, 0)
+    # Perform the tosses
+    for i in range(batch_size):
+        # Apply Hadamard gate to create superposition
+        qc.h(0)
+        
+        # Measure the qubit into the current classical bit
+        qc.measure(0, i)
+        
+        # Reset the qubit if this isn't the last toss
+        if i < batch_size - 1:
+            qc.reset(0)
     
     # Run the circuit
     job = backend.run(qc, shots=1)
     result = job.result()
     counts = result.get_counts()
     
-    # Extract the result (either '0' or '1')
-    outcome = list(counts.keys())[0]
+    # Parse the bitstring (comes in reverse order)
+    bit_string = list(counts.keys())[0]
     
-    # Convert to integer
-    result = int(outcome)
+    # Convert to list of integers
+    toss_results = [int(bit) for bit in bit_string]
     
-    # Update visualizer if provided
-    if visualizer:
-        visualizer.add_result(result)
-        plt.pause(0.05)  # Force immediate update
-    
-    return result
+    return toss_results
 
-def run_experiment(num_tosses=100, use_hardware=False, visualize=True, delay=0.1):
+def run_experiment(num_tosses=100, use_hardware=False, visualize=True, delay=0.1, batch_size=10):
     """
-    Run a series of quantum coin tosses with visualization
+    Run a series of quantum coin tosses with batched circuits and visualization
     
     Args:
-        num_tosses: Number of coin tosses to perform
+        num_tosses: Total number of coin tosses to perform
         use_hardware: Whether to use hardware acceleration
         visualize: Whether to show real-time visualization
-        delay: Delay between tosses (seconds)
+        delay: Delay between visualization updates (seconds)
+        batch_size: Number of tosses to include in each circuit
     """
     # Initialize visualizer if requested
     visualizer = None
@@ -81,19 +78,36 @@ def run_experiment(num_tosses=100, use_hardware=False, visualize=True, delay=0.1
     
     try:
         print(f"\nPerforming {num_tosses} quantum coin tosses using {hardware_label}...")
+        print(f"Using batch size of {batch_size} tosses per circuit")
         
-        for i in range(num_tosses):
-            # Perform a single toss
-            outcome = quantum_coin_toss(use_hardware, visualizer)
-            results.append(outcome)
+        # Process tosses in batches
+        remaining_tosses = num_tosses
+        while remaining_tosses > 0:
+            # Determine current batch size
+            current_batch = min(batch_size, remaining_tosses)
             
+            # Get a batch of results
+            batch_results = batched_quantum_coin_toss(current_batch, use_hardware)
+            
+            # Process each result for visualization
+            for outcome in batch_results:
+                results.append(outcome)
+                
+                # Update visualizer if available
+                if visualizer:
+                    visualizer.add_result(outcome)
+                
             # Progress update
-            if (i+1) % 10 == 0:
-                print(f"Completed {i+1}/{num_tosses} tosses")
+            tosses_done = len(results)
+            if tosses_done % 10 == 0 or tosses_done == num_tosses:
+                print(f"Completed {tosses_done}/{num_tosses} tosses")
+            
+            # Update remaining tosses
+            remaining_tosses = num_tosses - len(results)
             
             # Small delay for visualization
             if visualize and delay > 0:
-                time.sleep(delay)
+                plt.pause(delay)  # Force update the plot
     
     except KeyboardInterrupt:
         print("\nExperiment interrupted by user")
@@ -132,16 +146,15 @@ def run_experiment(num_tosses=100, use_hardware=False, visualize=True, delay=0.1
         if visualize and visualizer:
             filename = f"quantum_toss_{hardware_label}.png"
             visualizer.save_visualization(filename)
-            plt.pause(0.5)
-            print("\nVisualization complete. Press Enter to close...")
-            input()
             time.sleep(1)  # Give time for save to complete
+            print("Visualization saved. Close the window to exit...")
             visualizer.stop_visualization()
 
 if __name__ == "__main__":
     # Add command line arguments
     parser = argparse.ArgumentParser(description='Quantum Coin Toss Simulator with Visualization')
     parser.add_argument('--tosses', type=int, default=100, help='Number of coin tosses to perform')
+    parser.add_argument('--batch-size', type=int, default=10, help='Number of tosses per circuit')
     parser.add_argument('--hardware', action='store_true', help='Use hardware acceleration')
     parser.add_argument('--no-viz', action='store_true', help='Disable visualization')
     parser.add_argument('--delay', type=float, default=0.1, help='Delay between tosses (seconds)')
@@ -153,8 +166,6 @@ if __name__ == "__main__":
         num_tosses=args.tosses,
         use_hardware=args.hardware,
         visualize=not args.no_viz,
-        delay=args.delay
+        delay=args.delay,
+        batch_size=args.batch_size
     )
-
-    if not args.no_viz:
-        input("Press Enter to close the visualization...")
