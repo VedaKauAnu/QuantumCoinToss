@@ -39,51 +39,51 @@ def single_quantum_coin_toss(use_hardware=False):
     
     return int(outcome)
 
-def batched_quantum_coin_toss(num_tosses=10, use_hardware=False):
+def batched_quantum_coin_toss(batch_size, use_hardware=False):
     """
-    Perform multiple quantum coin tosses efficiently
+    Perform multiple quantum coin tosses in a single batch for improved performance
     
     Args:
-        num_tosses: Number of coin tosses to perform
+        batch_size: Number of coin tosses to perform
         use_hardware: Whether to use hardware acceleration
-        
+    
     Returns:
-        list: List of 0s and 1s representing coin toss outcomes
+        List of binary outcomes (0 or 1)
     """
-    # Choose the backend
-    if use_hardware:
-        backend = initialize_quantum_backend()
-    else:
-        from qiskit_aer import AerSimulator
-        backend = AerSimulator()
-    
-    # Create a quantum circuit with 1 qubit and num_tosses classical bits
-    qc = QuantumCircuit(1, num_tosses)
-    
-    # Perform the tosses
-    for i in range(num_tosses):
-        # Reset qubit to |0⟩ (except for first iteration where it's already |0⟩)
-        if i > 0:
-            qc.reset(0)
-            
-        # Apply Hadamard gate to create superposition
-        qc.h(0)
+    # Use module-level circuit caching for better performance
+    if not hasattr(batched_quantum_coin_toss, 'cached_circuit'):
+        from qiskit import QuantumCircuit, transpile
         
-        # Measure the qubit
-        qc.measure(0, i)
+        # Create the circuit just once
+        qc = QuantumCircuit(1, 1)
+        qc.h(0)  # Hadamard gate to create superposition
+        qc.measure(0, 0)
+        
+        # Get the backend
+        backend = initialize_quantum_backend()
+        
+        # Pre-transpile for performance
+        batched_quantum_coin_toss.cached_circuit = transpile(qc, backend, optimization_level=3)
+        batched_quantum_coin_toss.backend = backend
     
-    # Run the circuit
-    job = backend.run(qc, shots=1)
-    result = job.result()
-    counts = result.get_counts()
+    # Reuse the cached circuit and backend
+    qc = batched_quantum_coin_toss.cached_circuit
+    backend = batched_quantum_coin_toss.backend
     
-    # Parse the bitstring (comes in reverse order in Qiskit)
-    bit_string = list(counts.keys())[0]
+    # Execute the circuit with the requested number of shots
+    job = backend.run(qc, shots=batch_size)
+    counts = job.result().get_counts()
     
-    # Convert to list of integers (and reverse to get correct order)
-    toss_results = [int(bit) for bit in reversed(bit_string)]
+    # Convert to individual results
+    outcomes = []
+    for outcome, count in counts.items():
+        outcomes.extend([int(outcome)] * count)
     
-    return toss_results
+    # Shuffle to maintain randomness
+    import numpy as np
+    np.random.shuffle(outcomes)
+    
+    return outcomes
 
 def biased_quantum_coin(bias_angle, shots=1):
     """

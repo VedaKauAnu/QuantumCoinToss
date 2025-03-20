@@ -12,13 +12,12 @@ import collections
 class QuantumVisualizer:
     """Class to visualize quantum randomness in real-time"""
     
-    def __init__(self, max_samples=100, update_interval=200):
+    def __init__(self, max_samples=100, update_interval=500):
         """
         Initialize the visualizer
         
         Args:
             max_samples: Maximum number of samples to display in history
-            update_interval: Milliseconds between animation updates
         """
         self.results = []
         self.running = False
@@ -26,22 +25,31 @@ class QuantumVisualizer:
         self.animation = None
         self.lock = threading.Lock()
         self.max_samples = max_samples
-        self.update_interval = update_interval
+        self.update_interval = update_interval  # Higher value is more efficient
         
         # For qutrit visualization
         self.is_qutrit = False
         
         # For run tracking
         self.run_lengths = collections.deque(maxlen=max_samples)
-    
+        
+        # For performance optimization
+        self._last_data_len = 0
+        
     def add_result(self, result):
         """Add a new measurement result"""
         with self.lock:
-            self.results.append(result)
-            # Keep only the most recent max_samples
-            if len(self.results) > self.max_samples:
-                self.results.pop(0)
-    
+            # Handle single result or batch of results
+            if isinstance(result, (list, tuple, np.ndarray)):
+                self.results.extend(result)
+                # Keep only the most recent max_samples
+                if len(self.results) > self.max_samples:
+                    self.results = self.results[-self.max_samples:]
+            else:
+                self.results.append(result)
+                # Keep only the most recent max_samples
+                if len(self.results) > self.max_samples:
+                    self.results.pop(0)
     def start_visualization(self, title="Quantum Randomness Visualization", is_qutrit=False):
         """Start the visualization thread"""
         self.is_qutrit = is_qutrit
