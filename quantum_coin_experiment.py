@@ -1,12 +1,16 @@
+"""
+Comprehensive Quantum Coin Toss Experiment 
+with Real-time Visualization and Statistical Analysis
+"""
 import argparse
 import time
 import numpy as np
 import matplotlib.pyplot as plt
 
 # Import our modules
-from quantum_rings_coin import single_quantum_coin_toss, batched_quantum_coin_toss, biased_quantum_coin
+from basic_quantum_coin import single_quantum_coin_toss, batched_quantum_coin_toss, biased_quantum_coin
 from quantum_rings_provider import create_rings_backend
-from quantum_stats import analyze_coin_tosses, print_analysis, plot_results
+from statistical_analysis import analyze_coin_tosses, print_analysis, plot_results
 from quantum_visualizer import QuantumVisualizer
 
 def run_experiment(num_tosses=100, use_hardware=False, batch_size=10, 
